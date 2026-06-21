@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>樂透隨機選號器</title>
+<title>樂透隨機選號器（CSV版）</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 60%); min-height: 100vh; padding: 20px; color: #333; }
@@ -11,6 +11,7 @@
   .card { background: rgba(255,255,255,0.95); border-radius: 16px; padding: 28px; margin-bottom: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
   h1 { text-align: center; font-size: 28px; color: #fff; margin-bottom: 20px; letter-spacing: 2px; }
   h1 span { background: linear-gradient(135deg, #f7971e, #ffd200); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  h1 small { font-size: 14px; color: #aaa; -webkit-text-fill-color: #aaa; margin-left: 8px; }
   .form-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; align-items: center; }
   .form-row label { font-weight: 600; font-size: 14px; color: #555; min-width: 70px; }
   .form-row select, .form-row input { padding: 8px 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; background: #fff; }
@@ -44,8 +45,11 @@
   .history-item .del-btn { background: none; border: none; color: #ccc; cursor: pointer; font-size: 16px; padding: 0 4px; }
   .history-item .del-btn:hover { color: #e74c3c; }
   .action-btn { padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; border: 2px solid; transition: all 0.2s; }
+  .csv-btn { border-color: #38a169; background: #fff; color: #38a169; }
+  .csv-btn:hover { background: #38a169; color: #fff; }
   .clear-btn { border-color: #e74c3c; background: #fff; color: #e74c3c; }
   .clear-btn:hover { background: #e74c3c; color: #fff; }
+  .btn-group { margin-left: auto; display: flex; gap: 6px; }
   .ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .ref-box { padding: 10px 14px; border-radius: 10px; font-size: 13px; }
   .ref-box.hot { background: #fff5f5; border: 1px solid #fecaca; }
@@ -59,6 +63,8 @@
   .ref-box.cold .nums span { background: #bee3f8; color: #2b6cb0; }
   .empty-msg { color: #aaa; text-align: center; padding: 20px 0; font-size: 14px; }
   .disclaimer { background: rgba(255,243,205,0.9); color: #856404; padding: 10px 16px; border-radius: 10px; font-size: 13px; text-align: center; margin-bottom: 16px; line-height: 1.5; }
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2d3748; color: #fff; padding: 12px 24px; border-radius: 10px; font-size: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; }
   @media (max-width: 600px) {
     .card { padding: 18px; }
     .form-row { flex-direction: column; align-items: stretch; }
@@ -67,12 +73,14 @@
     .ref-grid { grid-template-columns: 1fr; }
     .ball { width: 34px; height: 34px; font-size: 13px; }
     h1 { font-size: 22px; }
+    .btn-group { margin-left: 0; width: 100%; }
+    .btn-group .action-btn { flex: 1; text-align: center; }
   }
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>&#127922; <span>樂透隨機選號器</span></h1>
+  <h1>&#127922; <span>樂透隨機選號器</span><small>CSV版</small></h1>
   <div class="disclaimer">本工具僅供參考娛樂，所有號碼皆為隨機產生，不保證中獎。彩票本質為機率遊戲，請量力而為，勿過度投注。</div>
   <div class="card">
     <div class="form-row">
@@ -107,7 +115,10 @@
     <div class="section-title">
       &#128195; 歷史紀錄
       <span class="badge" id="historyCount">0</span>
-      <button class="action-btn clear-btn" id="clearHistoryBtn">清除全部</button>
+      <div class="btn-group">
+        <button class="action-btn csv-btn" id="exportCsvBtn">&#128229; 匯出 CSV</button>
+        <button class="action-btn clear-btn" id="clearHistoryBtn">清除全部</button>
+      </div>
     </div>
     <div class="history-list" id="historyList">
       <div class="empty-msg">尚無紀錄</div>
@@ -119,10 +130,10 @@
     <div id="dataInfo" style="margin-top:10px;font-size:12px;color:#999;text-align:center;"></div>
   </div>
 </div>
+<div class="toast" id="toast"></div>
 <script>
 (function() {
   'use strict';
-
   var FALLBACK = {
     super: {
       name: '威力彩', zone1Range: [1,38], zone1Count: 6, zone2Range: [1,8], zone2Count: 1,
@@ -146,42 +157,7 @@
   var GAMES = JSON.parse(JSON.stringify(FALLBACK));
   var updateDate = null;
   var currentStrategy = 'random';
-
-  function loadData() {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', 'data.json', true);
-    xhr.onload = function() {
-      if (xhr.status === 200 || xhr.status === 0) {
-        try {
-          var data = JSON.parse(xhr.responseText);
-          if (data.games) {
-            for (var key in data.games) {
-              if (data.games.hasOwnProperty(key) && GAMES[key]) {
-                for (var prop in data.games[key]) {
-                  if (data.games[key].hasOwnProperty(prop)) {
-                    GAMES[key][prop] = data.games[key][prop];
-                  }
-                }
-              }
-            }
-            updateDate = data.updated || null;
-          }
-        } catch(e) {}
-      }
-      var info = document.getElementById('dataInfo');
-      if (updateDate) {
-        info.textContent = '冷熱號資料更新日期：' + updateDate;
-      } else {
-        info.textContent = '冷熱號資料為內建版本（未載入 data.json）';
-      }
-      renderRefTable(document.getElementById('gameSelect').value);
-    };
-    xhr.onerror = function() {
-      var info = document.getElementById('dataInfo');
-      info.textContent = '冷熱號資料為內建版本（未找到 data.json）';
-    };
-    try { xhr.send(); } catch(e) {}
-  }
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
 
   document.getElementById('strategyGroup').addEventListener('click', function(e) {
     var btn = e.target.closest('.strategy-btn'); if (!btn) return;
@@ -193,6 +169,13 @@
   document.getElementById('clearHistoryBtn').addEventListener('click', function() {
     if (confirm('確定清除全部紀錄？')) { localStorage.removeItem('lottoHistory'); renderHistory(); }
   });
+  document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+
+  function showToast(msg) {
+    var el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    setTimeout(function() { el.classList.remove('show'); }, 2500);
+  }
 
   function getWeights(gameKey, strategy) {
     if (strategy === 'random') return null;
@@ -236,7 +219,6 @@
     }
     return result.sort(function(a, b) { return a - b; });
   }
-  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
   function generate() {
     var gameKey = document.getElementById('gameSelect').value, game = GAMES[gameKey];
     var count = parseInt(document.getElementById('countInput').value, 10) || 1;
@@ -315,6 +297,75 @@
       html += '</div></div>';
     }
     grid.innerHTML = html;
+  }
+  function exportCsv() {
+    var history = [];
+    try { var s = localStorage.getItem('lottoHistory'); if (s) history = JSON.parse(s); } catch(e) {}
+    if (history.length === 0) { showToast('尚無紀錄可匯出'); return; }
+    var maxNums = 6;
+    var header = '時間,遊戲,組別';
+    for (var i = 1; i <= maxNums; i++) header += ',號碼'+i;
+    header += ',第2區';
+    var rows = [header];
+    for (var i = 0; i < history.length; i++) {
+      var h = history[i], gn = GAMES[h.game] ? GAMES[h.game].name : h.game;
+      for (var j = 0; j < h.sets.length; j++) {
+        var set = h.sets[j];
+        var row = h.time + ',' + gn + ',第' + (j+1) + '組';
+        for (var k = 0; k < maxNums; k++) {
+          row += ',' + (set.nums[k] !== undefined ? pad2(set.nums[k]) : '');
+        }
+        row += ',' + (set.zone2 !== undefined ? pad2(set.zone2) : '');
+        rows.push(row);
+      }
+    }
+    var bom = '\uFEFF';
+    var csv = bom + rows.join('\r\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    var now = new Date();
+    var dateStr = now.getFullYear()+'-'+pad2(now.getMonth()+1)+'-'+pad2(now.getDate());
+    a.download = '樂透紀錄_'+dateStr+'.csv';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    showToast('已匯出 ' + rows.length + ' 列資料');
+  }
+  function loadData() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'data.json', true);
+    xhr.onload = function() {
+      if (xhr.status === 200 || xhr.status === 0) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          if (data.games) {
+            for (var key in data.games) {
+              if (data.games.hasOwnProperty(key) && GAMES[key]) {
+                for (var prop in data.games[key]) {
+                  if (data.games[key].hasOwnProperty(prop)) {
+                    GAMES[key][prop] = data.games[key][prop];
+                  }
+                }
+              }
+            }
+            updateDate = data.updated || null;
+          }
+        } catch(e) {}
+      }
+      var info = document.getElementById('dataInfo');
+      if (updateDate) {
+        info.textContent = '冷熱號資料更新日期：' + updateDate;
+      } else {
+        info.textContent = '冷熱號資料為內建版本（未載入 data.json）';
+      }
+      renderRefTable(document.getElementById('gameSelect').value);
+    };
+    xhr.onerror = function() {
+      var info = document.getElementById('dataInfo');
+      info.textContent = '冷熱號資料為內建版本（未找到 data.json）';
+    };
+    try { xhr.send(); } catch(e) {}
   }
   renderRefTable('super'); renderHistory(); loadData();
 })();

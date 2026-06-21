@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
@@ -46,6 +46,9 @@
   .action-btn { padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; border: 2px solid; transition: all 0.2s; }
   .clear-btn { border-color: #e74c3c; background: #fff; color: #e74c3c; }
   .clear-btn:hover { background: #e74c3c; color: #fff; }
+  .update-btn { border-color: #38a169; background: #fff; color: #38a169; }
+  .update-btn:hover { background: #38a169; color: #fff; }
+  .update-btn:disabled { border-color: #ccc; background: #eee; color: #999; cursor: not-allowed; }
   .ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .ref-box { padding: 10px 14px; border-radius: 10px; font-size: 13px; }
   .ref-box.hot { background: #fff5f5; border: 1px solid #fecaca; }
@@ -59,6 +62,10 @@
   .ref-box.cold .nums span { background: #bee3f8; color: #2b6cb0; }
   .empty-msg { color: #aaa; text-align: center; padding: 20px 0; font-size: 14px; }
   .disclaimer { background: rgba(255,243,205,0.9); color: #856404; padding: 10px 16px; border-radius: 10px; font-size: 13px; text-align: center; margin-bottom: 16px; line-height: 1.5; }
+  .update-status { text-align: center; font-size: 13px; padding: 6px 0; color: #666; }
+  .update-status.loading { color: #f7971e; }
+  .update-status.success { color: #38a169; }
+  .update-status.error { color: #e53e3e; }
   @media (max-width: 600px) {
     .card { padding: 18px; }
     .form-row { flex-direction: column; align-items: stretch; }
@@ -114,14 +121,20 @@
     </div>
   </div>
   <div class="card">
-    <div class="section-title">&#128202; 冷熱號參考表</div>
+    <div class="section-title">
+      &#128202; 冷熱號參考表
+      <button class="action-btn update-btn" id="updateBtn">&#128259; 更新冷熱號</button>
+    </div>
     <div class="ref-grid" id="refGrid"></div>
     <div id="dataInfo" style="margin-top:10px;font-size:12px;color:#999;text-align:center;"></div>
+    <div id="updateStatus" class="update-status"></div>
   </div>
 </div>
 <script>
 (function() {
   'use strict';
+
+  var isAndroid = typeof AppBridge !== 'undefined';
 
   var FALLBACK = {
     super: {
@@ -147,7 +160,105 @@
   var updateDate = null;
   var currentStrategy = 'random';
 
+  function mergeAndroidData(jsonStr) {
+    try {
+      var data = JSON.parse(jsonStr);
+      function mergeGame(src, dst) {
+        for (var prop in src) {
+          if (src.hasOwnProperty(prop)) {
+            if (typeof src[prop] === 'object' && src[prop] !== null && !Array.isArray(src[prop])) {
+              dst[prop] = dst[prop] || {};
+              for (var k in src[prop]) {
+                if (src[prop].hasOwnProperty(k)) {
+                  dst[prop][k] = src[prop][k];
+                }
+              }
+            } else {
+              dst[prop] = src[prop];
+            }
+          }
+        }
+      }
+      if (data.lotto && data.lotto.data) {
+        mergeGame(parseApiData(data.lotto.data, 'lotto'), GAMES.lotto);
+      }
+      if (data.powerball && data.powerball.data) {
+        var pb = parsePowerballData(data.powerball.data);
+        mergeGame(pb, GAMES.super);
+      }
+      if (data.daily && data.daily.data) {
+        mergeGame(parseApiData(data.daily.data, 'daily'), GAMES.daily);
+      }
+      if (data.updated) {
+        updateDate = data.updated;
+      }
+      return true;
+    } catch(e) { return false; }
+  }
+
+  function parseApiData(apiData, gameKey) {
+    var result = {};
+    if (!apiData.all) return result;
+    var freq = {};
+    apiData.all.forEach(function(item) { freq[item.number] = item.count; });
+    result.allFreq = freq;
+    if (apiData.hot) {
+      var hk = gameKey === 'daily' ? 'hot5' : 'hot6';
+      var n = gameKey === 'daily' ? 5 : 6;
+      result[hk] = apiData.hot.slice(0, n).map(function(x) { return x.number; });
+    }
+    if (apiData.cold) {
+      var ck = gameKey === 'daily' ? 'cold5' : 'cold6';
+      var n = gameKey === 'daily' ? 5 : 6;
+      result[ck] = apiData.cold.slice(0, n).map(function(x) { return x.number; });
+    }
+    return result;
+  }
+
+  function parsePowerballData(apiData) {
+    var result = {};
+    var z1 = apiData.zone1;
+    if (z1 && z1.all) {
+      var freq = {};
+      z1.all.forEach(function(item) { freq[item.number] = item.count; });
+      result.allFreq = freq;
+    }
+    if (z1 && z1.hot) {
+      result.hot6 = z1.hot.slice(0, 6).map(function(x) { return x.number; });
+    }
+    if (z1 && z1.cold) {
+      result.cold6 = z1.cold.slice(0, 6).map(function(x) { return x.number; });
+    }
+    var z2 = apiData.zone2;
+    if (z2 && z2.all) {
+      var f2 = {};
+      z2.all.forEach(function(item) { f2[item.number] = item.count; });
+      result.allFreqZone2 = f2;
+    }
+    if (z2 && z2.hot) {
+      result.hotZone2 = z2.hot.slice(0, 6).map(function(x) { return x.number; });
+    }
+    if (z2 && z2.cold) {
+      result.coldZone2 = z2.cold.slice(0, 6).map(function(x) { return x.number; });
+    }
+    return result;
+  }
+
+  function applyDataAndRefresh(infoText) {
+    var info = document.getElementById('dataInfo');
+    info.textContent = infoText;
+    renderRefTable(document.getElementById('gameSelect').value);
+  }
+
   function loadData() {
+    var localData = localStorage.getItem('lottoAndroidData');
+    if (localData) {
+      if (mergeAndroidData(localData)) {
+        applyDataAndRefresh(updateDate ? '冷熱號資料更新日期：' + updateDate + '（已離線儲存）' : '使用已儲存的冷熱號資料');
+        return;
+      }
+    }
+
     var xhr = new XMLHttpRequest();
     xhr.open('GET', 'data.json', true);
     xhr.onload = function() {
@@ -172,16 +283,45 @@
       if (updateDate) {
         info.textContent = '冷熱號資料更新日期：' + updateDate;
       } else {
-        info.textContent = '冷熱號資料為內建版本（未載入 data.json）';
+        info.textContent = '冷熱號資料為內建版本';
       }
       renderRefTable(document.getElementById('gameSelect').value);
     };
     xhr.onerror = function() {
-      var info = document.getElementById('dataInfo');
-      info.textContent = '冷熱號資料為內建版本（未找到 data.json）';
+      document.getElementById('dataInfo').textContent = '冷熱號資料為內建版本';
     };
     try { xhr.send(); } catch(e) {}
   }
+
+  window.onAndroidDataLoaded = function(jsonStr) {
+    if (jsonStr && jsonStr.length > 5) {
+      localStorage.setItem('lottoAndroidData', jsonStr);
+      if (mergeAndroidData(jsonStr)) {
+        applyDataAndRefresh(updateDate ? '冷熱號資料更新日期：' + updateDate : '已載入冷熱號資料');
+      }
+    }
+  };
+
+  window.onUpdateResult = function(jsonStr) {
+    var status = document.getElementById('updateStatus');
+    status.className = 'update-status success';
+    status.textContent = '&#10003; 更新成功！';
+    document.getElementById('updateBtn').disabled = false;
+    document.getElementById('updateBtn').textContent = '&#128259; 更新冷熱號';
+
+    localStorage.setItem('lottoAndroidData', jsonStr);
+    if (mergeAndroidData(jsonStr)) {
+      applyDataAndRefresh(updateDate ? '冷熱號資料更新日期：' + updateDate : '已更新冷熱號資料');
+    }
+  };
+
+  window.onUpdateError = function(msg) {
+    var status = document.getElementById('updateStatus');
+    status.className = 'update-status error';
+    status.textContent = '&#10007; 更新失敗：' + msg;
+    document.getElementById('updateBtn').disabled = false;
+    document.getElementById('updateBtn').textContent = '&#128259; 更新冷熱號';
+  };
 
   document.getElementById('strategyGroup').addEventListener('click', function(e) {
     var btn = e.target.closest('.strategy-btn'); if (!btn) return;
@@ -192,6 +332,21 @@
   document.getElementById('generateBtn').addEventListener('click', generate);
   document.getElementById('clearHistoryBtn').addEventListener('click', function() {
     if (confirm('確定清除全部紀錄？')) { localStorage.removeItem('lottoHistory'); renderHistory(); }
+  });
+
+  document.getElementById('updateBtn').addEventListener('click', function() {
+    var btn = this;
+    var status = document.getElementById('updateStatus');
+    if (isAndroid) {
+      btn.disabled = true;
+      btn.textContent = '&#128259; 更新中...';
+      status.className = 'update-status loading';
+      status.textContent = '正在擷取最新冷熱號資料...';
+      AppBridge.startUpdate();
+    } else {
+      status.className = 'update-status error';
+      status.textContent = '此功能僅在 Android APP 中可用';
+    }
   });
 
   function getWeights(gameKey, strategy) {
