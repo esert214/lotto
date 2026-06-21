@@ -1,0 +1,321 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>樂透隨機選號器</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 60%); min-height: 100vh; padding: 20px; color: #333; }
+  .container { max-width: 780px; margin: 0 auto; }
+  .card { background: rgba(255,255,255,0.95); border-radius: 16px; padding: 28px; margin-bottom: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+  h1 { text-align: center; font-size: 28px; color: #fff; margin-bottom: 20px; letter-spacing: 2px; }
+  h1 span { background: linear-gradient(135deg, #f7971e, #ffd200); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .form-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; align-items: center; }
+  .form-row label { font-weight: 600; font-size: 14px; color: #555; min-width: 70px; }
+  .form-row select, .form-row input { padding: 8px 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; background: #fff; }
+  .form-row select:focus, .form-row input:focus { outline: none; border-color: #f7971e; }
+  .form-row select { flex: 0 0 130px; }
+  .form-row input[type=number] { flex: 0 0 70px; }
+  .form-row input[type=text] { flex: 1; min-width: 120px; }
+  .strategy-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .strategy-btn { padding: 6px 14px; border: 2px solid #ddd; border-radius: 20px; background: #fff; cursor: pointer; font-size: 13px; }
+  .strategy-btn:hover { border-color: #f7971e; }
+  .strategy-btn.active { background: linear-gradient(135deg, #f7971e, #ffd200); border-color: #f7971e; color: #fff; font-weight: 600; }
+  .generate-btn { display: block; width: 100%; padding: 14px; font-size: 18px; font-weight: 700; border: none; border-radius: 12px; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; cursor: pointer; letter-spacing: 2px; }
+  .generate-btn:hover { transform: translateY(-2px); }
+  .result-area { margin-top: 16px; }
+  .result-set { background: #f8f9fa; border-radius: 12px; padding: 14px 18px; margin-bottom: 10px; border-left: 4px solid #f7971e; }
+  .result-set .game-label { font-size: 12px; color: #999; margin-bottom: 4px; }
+  .result-set .numbers { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .ball { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+  .ball.super { background: linear-gradient(135deg, #667eea, #764ba2); }
+  .ball.lotto { background: linear-gradient(135deg, #f093fb, #f5576c); }
+  .ball.daily { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+  .ball.zone2 { background: linear-gradient(135deg, #f7971e, #ffd200); color: #333; width: 36px; height: 36px; font-size: 13px; }
+  .ball.plus { background: transparent; color: #999; box-shadow: none; width: auto; font-size: 18px; }
+  .section-title { font-size: 16px; font-weight: 700; color: #444; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .section-title .badge { background: #e74c3c; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+  .history-list { max-height: 300px; overflow-y: auto; }
+  .history-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 8px; background: #f8f9fa; margin-bottom: 6px; font-size: 13px; }
+  .history-item:hover { background: #eef; }
+  .history-item .time { color: #999; font-size: 12px; min-width: 70px; }
+  .history-item .nums { flex: 1; margin: 0 10px; }
+  .history-item .del-btn { background: none; border: none; color: #ccc; cursor: pointer; font-size: 16px; padding: 0 4px; }
+  .history-item .del-btn:hover { color: #e74c3c; }
+  .action-btn { padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; border: 2px solid; transition: all 0.2s; }
+  .clear-btn { border-color: #e74c3c; background: #fff; color: #e74c3c; }
+  .clear-btn:hover { background: #e74c3c; color: #fff; }
+  .ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ref-box { padding: 10px 14px; border-radius: 10px; font-size: 13px; }
+  .ref-box.hot { background: #fff5f5; border: 1px solid #fecaca; }
+  .ref-box.cold { background: #f0f7ff; border: 1px solid #bee3f8; }
+  .ref-box .label { font-weight: 700; margin-bottom: 4px; }
+  .ref-box.hot .label { color: #e53e3e; }
+  .ref-box.cold .label { color: #3182ce; }
+  .ref-box .nums { display: flex; flex-wrap: wrap; gap: 4px; }
+  .ref-box .nums span { padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+  .ref-box.hot .nums span { background: #fed7d7; color: #c53030; }
+  .ref-box.cold .nums span { background: #bee3f8; color: #2b6cb0; }
+  .empty-msg { color: #aaa; text-align: center; padding: 20px 0; font-size: 14px; }
+  @media (max-width: 600px) {
+    .card { padding: 18px; }
+    .form-row { flex-direction: column; align-items: stretch; }
+    .form-row label { min-width: auto; }
+    .form-row select, .form-row input { flex: 1; }
+    .ref-grid { grid-template-columns: 1fr; }
+    .ball { width: 34px; height: 34px; font-size: 13px; }
+    h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>&#127922; <span>樂透隨機選號器</span></h1>
+  <div class="card">
+    <div class="form-row">
+      <label>遊戲</label>
+      <select id="gameSelect">
+        <option value="super">威力彩</option>
+        <option value="lotto">大樂透</option>
+        <option value="daily">今彩539</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>組數</label>
+      <input type="number" id="countInput" min="1" max="10" value="1">
+    </div>
+    <div class="form-row">
+      <label>策略</label>
+      <div class="strategy-group" id="strategyGroup">
+        <button class="strategy-btn active" data-strategy="random">完全隨機</button>
+        <button class="strategy-btn" data-strategy="hot">偏熱門</button>
+        <button class="strategy-btn" data-strategy="cold">偏冷門</button>
+        <button class="strategy-btn" data-strategy="balance">平衡模式</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>排除</label>
+      <input type="text" id="excludeInput" placeholder="例: 5,13,27（選擇性填寫）">
+    </div>
+    <button class="generate-btn" id="generateBtn">&#127922; 生成號碼</button>
+    <div class="result-area" id="resultArea"></div>
+  </div>
+  <div class="card">
+    <div class="section-title">
+      &#128195; 歷史紀錄
+      <span class="badge" id="historyCount">0</span>
+      <button class="action-btn clear-btn" id="clearHistoryBtn">清除全部</button>
+    </div>
+    <div class="history-list" id="historyList">
+      <div class="empty-msg">尚無紀錄</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-title">&#128202; 冷熱號參考表</div>
+    <div class="ref-grid" id="refGrid"></div>
+    <div id="dataInfo" style="margin-top:10px;font-size:12px;color:#999;text-align:center;"></div>
+  </div>
+</div>
+<script>
+(function() {
+  'use strict';
+
+  var FALLBACK = {
+    super: {
+      name: '威力彩', zone1Range: [1,38], zone1Count: 6, zone2Range: [1,8], zone2Count: 1,
+      hot6: [24,38,3,14,4,15], cold6: [9,5,32,2,34,33],
+      hotZone2: [2,5,4,3,8,1], coldZone2: [6,7,1,8,3,4],
+      allFreq: {1:22,2:29,3:32,4:30,5:28,6:25,7:26,8:31,9:14,10:19,11:23,12:12,13:17,14:24,15:17,16:16,17:23,18:16,19:13,20:13,21:17,22:16,23:19,24:35,25:23,26:15,27:16,28:12,29:19,30:23,31:19,32:9,33:20,34:12,35:16,36:16,37:19,38:18},
+      allFreqZone2: {1:227,2:270,3:239,4:247,5:259,6:219,7:225,8:229}
+    },
+    lotto: {
+      name: '大樂透', zone1Range: [1,49], zone1Count: 6,
+      hot6: [8,2,15,23,41,1], cold6: [6,4,9,17,24,14],
+      allFreq: {1:280,2:283,3:253,4:231,5:259,6:231,7:261,8:290,9:234,10:258,11:277,12:256,13:260,14:242,15:283,16:255,17:238,18:260,19:263,20:265,21:268,22:279,23:281,24:240,25:269,26:255,27:271,28:269,29:268,30:272,31:258,32:268,33:274,34:247,35:280,36:267,37:270,38:267,39:270,40:258,41:281,42:253,43:276,44:258,45:268,46:260,47:252,48:264,49:257}
+    },
+    daily: {
+      name: '今彩539', zone1Range: [1,39], zone1Count: 5,
+      hot5: [37,5,17,34,1], cold5: [30,33,29,3,13],
+      allFreq: {1:786,2:767,3:723,4:786,5:799,6:761,7:744,8:774,9:759,10:772,11:771,12:750,13:727,14:770,15:767,16:746,17:791,18:758,19:733,20:769,21:737,22:764,23:779,24:729,25:754,26:746,27:781,28:745,29:720,30:702,31:758,32:728,33:704,34:787,35:753,36:781,37:814,38:777,39:738}
+    }
+  };
+
+  var GAMES = JSON.parse(JSON.stringify(FALLBACK));
+  var updateDate = null;
+  var currentStrategy = 'random';
+
+  function loadData() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'data.json', true);
+    xhr.onload = function() {
+      if (xhr.status === 200 || xhr.status === 0) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          if (data.games) {
+            for (var key in data.games) {
+              if (data.games.hasOwnProperty(key) && GAMES[key]) {
+                for (var prop in data.games[key]) {
+                  if (data.games[key].hasOwnProperty(prop)) {
+                    GAMES[key][prop] = data.games[key][prop];
+                  }
+                }
+              }
+            }
+            updateDate = data.updated || null;
+          }
+        } catch(e) {}
+      }
+      var info = document.getElementById('dataInfo');
+      if (updateDate) {
+        info.textContent = '冷熱號資料更新日期：' + updateDate;
+      } else {
+        info.textContent = '冷熱號資料為內建版本（未載入 data.json）';
+      }
+      renderRefTable(document.getElementById('gameSelect').value);
+    };
+    xhr.onerror = function() {
+      var info = document.getElementById('dataInfo');
+      info.textContent = '冷熱號資料為內建版本（未找到 data.json）';
+    };
+    try { xhr.send(); } catch(e) {}
+  }
+
+  document.getElementById('strategyGroup').addEventListener('click', function(e) {
+    var btn = e.target.closest('.strategy-btn'); if (!btn) return;
+    this.querySelectorAll('.strategy-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active'); currentStrategy = btn.dataset.strategy;
+  });
+  document.getElementById('gameSelect').addEventListener('change', function() { renderRefTable(this.value); });
+  document.getElementById('generateBtn').addEventListener('click', generate);
+  document.getElementById('clearHistoryBtn').addEventListener('click', function() {
+    if (confirm('確定清除全部紀錄？')) { localStorage.removeItem('lottoHistory'); renderHistory(); }
+  });
+
+  function getWeights(gameKey, strategy) {
+    if (strategy === 'random') return null;
+    var game = GAMES[gameKey], weights = {}, min = game.zone1Range[0], max = game.zone1Range[1], freq = game.allFreq;
+    var minF = Infinity, maxF = -Infinity;
+    for (var i = min; i <= max; i++) { var f = freq[i]||0; if (f < minF) minF = f; if (f > maxF) maxF = f; }
+    var rng = maxF - minF || 1;
+    if (strategy === 'hot') { for (var i = min; i <= max; i++) weights[i] = 0.5 + 1.5 * ((freq[i] - minF) / rng); }
+    else if (strategy === 'cold') { for (var i = min; i <= max; i++) weights[i] = 0.5 + 1.5 * ((maxF - freq[i]) / rng); }
+    else if (strategy === 'balance') {
+      var all = []; for (var i = min; i <= max; i++) all.push(i);
+      var sorted = all.slice().sort(function(a, b) { return (freq[a]||0) - (freq[b]||0); });
+      var third = Math.floor(sorted.length / 3), coldS = {}, hotS = {};
+      for (var i = 0; i < third; i++) coldS[sorted[i]] = true;
+      for (var i = sorted.length - third; i < sorted.length; i++) hotS[sorted[i]] = true;
+      for (var i = min; i <= max; i++) weights[i] = (coldS[i] || hotS[i]) ? 1.5 : 1.0;
+    }
+    return weights;
+  }
+  function getZone2Weights(gameKey, strategy) {
+    if (strategy === 'random') return null;
+    var game = GAMES[gameKey]; if (!game.allFreqZone2) return null;
+    var freq = game.allFreqZone2, minF = Infinity, maxF = -Infinity;
+    for (var i = 1; i <= 8; i++) { var f = freq[i]||0; if (f < minF) minF = f; if (f > maxF) maxF = f; }
+    var rng = maxF - minF || 1, weights = {};
+    if (strategy === 'hot') { for (var i = 1; i <= 8; i++) weights[i] = 0.5 + 1.5 * ((freq[i] - minF) / rng); }
+    else if (strategy === 'cold') { for (var i = 1; i <= 8; i++) weights[i] = 0.5 + 1.5 * ((maxF - freq[i]) / rng); }
+    else return null;
+    return weights;
+  }
+  function pickNumbers(range, count, excludeSet, weights) {
+    var pool = [];
+    for (var i = range[0]; i <= range[1]; i++) { if (excludeSet && excludeSet.has(i)) continue; pool.push(i); }
+    if (pool.length < count) return null;
+    var result = [];
+    for (var r = 0; r < count; r++) {
+      var w = pool.map(function(n) { return weights ? (weights[n]||1) : 1; });
+      var totalW = 0; for (var i = 0; i < w.length; i++) totalW += w[i];
+      var rand = Math.random() * totalW, sum = 0;
+      for (var i = 0; i < pool.length; i++) { sum += w[i]; if (rand <= sum) { result.push(pool[i]); pool.splice(i, 1); break; } }
+    }
+    return result.sort(function(a, b) { return a - b; });
+  }
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+  function generate() {
+    var gameKey = document.getElementById('gameSelect').value, game = GAMES[gameKey];
+    var count = parseInt(document.getElementById('countInput').value, 10) || 1;
+    if (count < 1) count = 1; if (count > 10) count = 10;
+    var excludeText = document.getElementById('excludeInput').value.trim(), excludeSet = null;
+    if (excludeText) {
+      excludeSet = new Set();
+      excludeText.split(/[,，\s]+/).forEach(function(s) { var n = parseInt(s,10); if (!isNaN(n)) excludeSet.add(n); });
+    }
+    var weights = getWeights(gameKey, currentStrategy);
+    var z2weights = gameKey === 'super' ? getZone2Weights(gameKey, currentStrategy) : null;
+    var resultHTML = '', now = new Date();
+    var timeStr = now.getFullYear()+'-'+pad2(now.getMonth()+1)+'-'+pad2(now.getDate())+' '+pad2(now.getHours())+':'+pad2(now.getMinutes());
+    var historyEntry = { game: gameKey, time: timeStr, sets: [] };
+    for (var s = 0; s < count; s++) {
+      var nums = pickNumbers(game.zone1Range, game.zone1Count, excludeSet, weights);
+      if (!nums) { document.getElementById('resultArea').innerHTML = '<div class="empty-msg">排除後可選號碼不足，請調整排除清單</div>'; return; }
+      if (gameKey === 'super') {
+        var z2 = pickNumbers(game.zone2Range, game.zone2Count, excludeSet, z2weights);
+        if (!z2) z2 = pickNumbers(game.zone2Range, game.zone2Count, null, z2weights);
+        resultHTML += '<div class="result-set"><div class="game-label">'+game.name+' 第'+(s+1)+'組</div><div class="numbers">';
+        nums.forEach(function(n) { resultHTML += '<span class="ball super">'+pad2(n)+'</span>'; });
+        resultHTML += '<span class="ball plus">+</span><span class="ball zone2">'+pad2(z2[0])+'</span></div></div>';
+        historyEntry.sets.push({ nums: nums.slice(), zone2: z2[0] });
+      } else {
+        var cls = gameKey === 'lotto' ? 'ball lotto' : 'ball daily';
+        resultHTML += '<div class="result-set"><div class="game-label">'+game.name+' 第'+(s+1)+'組</div><div class="numbers">';
+        nums.forEach(function(n) { resultHTML += '<span class="'+cls+'">'+pad2(n)+'</span>'; });
+        resultHTML += '</div></div>';
+        historyEntry.sets.push({ nums: nums.slice() });
+      }
+    }
+    document.getElementById('resultArea').innerHTML = resultHTML;
+    saveHistory(historyEntry); renderHistory();
+  }
+  function saveHistory(entry) {
+    var history = [];
+    try { var s = localStorage.getItem('lottoHistory'); if (s) history = JSON.parse(s); } catch(e) {}
+    history.unshift(entry); if (history.length > 100) history = history.slice(0, 100);
+    localStorage.setItem('lottoHistory', JSON.stringify(history));
+  }
+  function renderHistory() {
+    var list = document.getElementById('historyList'), countEl = document.getElementById('historyCount');
+    var history = []; try { var s = localStorage.getItem('lottoHistory'); if (s) history = JSON.parse(s); } catch(e) {}
+    countEl.textContent = history.length;
+    if (history.length === 0) { list.innerHTML = '<div class="empty-msg">尚無紀錄</div>'; return; }
+    var html = '';
+    for (var i = 0; i < history.length; i++) {
+      var h = history[i], gn = GAMES[h.game] ? GAMES[h.game].name : h.game;
+      var nt = h.sets.map(function(st) { var r = st.nums.join(', '); if (st.zone2) r += ' + '+pad2(st.zone2); return r; }).join(' | ');
+      html += '<div class="history-item"><span class="time">'+h.time+'</span><span class="nums">['+gn+'] '+nt+'</span><button class="del-btn" data-index="'+i+'">&times;</button></div>';
+    }
+    list.innerHTML = html;
+    list.querySelectorAll('.del-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var idx = parseInt(this.dataset.index, 10), history = [];
+        try { var s = localStorage.getItem('lottoHistory'); if (s) history = JSON.parse(s); } catch(e) {}
+        history.splice(idx, 1); localStorage.setItem('lottoHistory', JSON.stringify(history)); renderHistory();
+      });
+    });
+  }
+  function renderRefTable(gameKey) {
+    var game = GAMES[gameKey]; if (!game) return;
+    var grid = document.getElementById('refGrid');
+    var hk = gameKey === 'daily' ? 'hot5' : 'hot6', ck = gameKey === 'daily' ? 'cold5' : 'cold6';
+    var html = '<div class="ref-box hot"><div class="label">&#128293; 熱門號碼</div><div class="nums">';
+    game[hk].forEach(function(n) { html += '<span>'+pad2(n)+'</span>'; });
+    html += '</div></div><div class="ref-box cold"><div class="label">&#129398; 冷門號碼</div><div class="nums">';
+    game[ck].forEach(function(n) { html += '<span>'+pad2(n)+'</span>'; });
+    html += '</div></div>';
+    if (gameKey === 'super') {
+      html += '<div class="ref-box hot"><div class="label">&#128293; 第2區熱門</div><div class="nums">';
+      game.hotZone2.forEach(function(n) { html += '<span>'+pad2(n)+'</span>'; });
+      html += '</div></div><div class="ref-box cold"><div class="label">&#129398; 第2區冷門</div><div class="nums">';
+      game.coldZone2.forEach(function(n) { html += '<span>'+pad2(n)+'</span>'; });
+      html += '</div></div>';
+    }
+    grid.innerHTML = html;
+  }
+  renderRefTable('super'); renderHistory(); loadData();
+})();
+</script>
+</body>
+</html>
