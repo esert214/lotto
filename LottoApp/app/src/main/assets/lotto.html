@@ -322,9 +322,9 @@
   window.onUpdateResult = function(jsonStr) {
     var status = document.getElementById('updateStatus');
     status.className = 'update-status success';
-    status.textContent = '&#10003; 更新成功！';
+    status.innerHTML = '&#10003; 更新成功！';
     document.getElementById('updateBtn').disabled = false;
-    document.getElementById('updateBtn').textContent = '&#128259; 更新冷熱號';
+    document.getElementById('updateBtn').innerHTML = '&#128259; 更新冷熱號';
 
     localStorage.setItem('lottoAndroidData', jsonStr);
     if (mergeAndroidData(jsonStr)) {
@@ -335,9 +335,9 @@
   window.onUpdateError = function(msg) {
     var status = document.getElementById('updateStatus');
     status.className = 'update-status error';
-    status.textContent = '&#10007; 更新失敗：' + msg;
+    status.innerHTML = '&#10007; 更新失敗：' + msg;
     document.getElementById('updateBtn').disabled = false;
-    document.getElementById('updateBtn').textContent = '&#128259; 更新冷熱號';
+    document.getElementById('updateBtn').innerHTML = '&#128259; 更新冷熱號';
   };
 
   document.getElementById('strategyGroup').addEventListener('click', function(e) {
@@ -356,7 +356,7 @@
     var status = document.getElementById('updateStatus');
     if (isAndroid) {
       btn.disabled = true;
-      btn.textContent = '&#128259; 更新中...';
+      btn.innerHTML = '&#128259; 更新中...';
       status.className = 'update-status loading';
       status.textContent = '正在擷取最新冷熱號資料...';
       AppBridge.startUpdate();
